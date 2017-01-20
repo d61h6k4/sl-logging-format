@@ -3,7 +3,7 @@
 
 module SLLogFormatting
        (logSL, Severity(..), logSLINFO, logSLDEBUG, logSLERROR,
-        renderNSLog, NSMessage)
+        renderSLLog, SLMessage)
        where
 
 
@@ -18,67 +18,67 @@ import Control.Monad.Log
 
 import qualified Control.Monad.Log as Log
 
-type NSMessage a = WithTimestamp (WithSeverity a)
+type SLMessage a = WithTimestamp (WithSeverity a)
 
 logSL
-    :: (ToJSON a, MonadIO m, MonadLog (NSMessage a) m)
+    :: (ToJSON a, MonadIO m, MonadLog (SLMessage a) m)
     => UTCTime -> Severity -> a -> m ()
-logSL timestamp severity' msg =
+logSL timestamp' severity' msg =
     Log.logMessage
-        (WithTimestamp
-         { discardTimestamp = (WithSeverity
+        WithTimestamp
+         { discardTimestamp = WithSeverity
                                { discardSeverity = msg
                                , msgSeverity = severity'
-                               })
-         , msgTimestamp = timestamp
-         })
+                               }
+         , msgTimestamp = timestamp'
+         }
 
 
 logSLSeverity
-    :: (ToJSON a, MonadIO m, MonadLog (NSMessage a) m)
+    :: (ToJSON a, MonadIO m, MonadLog (SLMessage a) m)
     => Severity -> a -> m ()
 logSLSeverity severity' msg =
     Log.timestamp
-        (WithSeverity
+        WithSeverity
          { discardSeverity = msg
          , msgSeverity = severity'
-         }) >>=
+         } >>=
     Log.logMessage
 
 
 logSLINFO
-    :: (ToJSON a, MonadIO m, MonadLog (NSMessage a) m)
+    :: (ToJSON a, MonadIO m, MonadLog (SLMessage a) m)
     => a -> m ()
 logSLINFO = logSLSeverity Informational
 
 
 logSLDEBUG
-    :: (ToJSON a, MonadIO m, MonadLog (NSMessage a) m)
+    :: (ToJSON a, MonadIO m, MonadLog (SLMessage a) m)
     => a -> m ()
 logSLDEBUG = logSLSeverity Debug
 
 
 logSLERROR
-    :: (ToJSON a, MonadIO m, MonadLog (NSMessage a) m)
+    :: (ToJSON a, MonadIO m, MonadLog (SLMessage a) m)
     => a -> m ()
 logSLERROR = logSLSeverity Error
 
-data NSLogLine a = NSLogLine
+data SLLogLine a = SLLogLine
     { severity :: String
-    , time :: String
+    , timestamp :: String
     , logMessage :: a
     } deriving (Generic)
 
-instance ToJSON a => ToJSON (NSLogLine a)
+instance ToJSON a => ToJSON (SLLogLine a)
 
-renderNSLog :: (ToJSON a) => WithTimestamp (WithSeverity a) -> ByteString
-renderNSLog msg =
-    encode $
-    NSLogLine
-    { severity = severity2nsseverity (msgSeverity (discardTimestamp msg))
-    , time = utc2unixtimestamp (msgTimestamp msg)
-    , logMessage = discardSeverity (discardTimestamp msg)
-    }
+renderSLLog :: (ToJSON a) => WithTimestamp (WithSeverity a) -> ByteString
+renderSLLog msg =
+    encode
+        SLLogLine
+        { severity = severity2nsseverity (msgSeverity (discardTimestamp msg))
+        , timestamp = utc2unixtimestamp (msgTimestamp msg)
+        , logMessage = discardSeverity (discardTimestamp msg)
+        }
 
 utc2unixtimestamp :: UTCTime -> String
 utc2unixtimestamp = formatTime defaultTimeLocale "%s"
